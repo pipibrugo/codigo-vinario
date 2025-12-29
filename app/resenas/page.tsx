@@ -1,34 +1,51 @@
 import fs from "node:fs";
 import path from "node:path";
-import Link from "next/link";
+import matter from "gray-matter";
+import ReviewsListClient from "./ReviewsListClient";
+
+type ReviewMeta = {
+  slug: string;
+  title: string;
+  date?: string;
+  winery?: string;
+  varietal?: string;
+  region?: string;
+  score?: number;
+};
+
+function getReviews(): ReviewMeta[] {
+  const resenasDir = path.join(process.cwd(), "content", "resenas");
+  const files = fs.readdirSync(resenasDir).filter((f) => f.endsWith(".mdx"));
+
+  const reviews = files.map((file) => {
+    const slug = file.replace(".mdx", "");
+    const raw = fs.readFileSync(path.join(resenasDir, file), "utf8");
+    const { data } = matter(raw);
+
+    return {
+      slug,
+      title: String(data.title ?? slug.replaceAll("-", " ")),
+      date: data.date ? String(data.date) : undefined,
+      winery: data.winery ? String(data.winery) : undefined,
+      varietal: data.varietal ? String(data.varietal) : undefined,
+      region: data.region ? String(data.region) : undefined,
+      score: typeof data.score === "number" ? data.score : undefined,
+    };
+  });
+
+  reviews.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+  return reviews;
+}
 
 export default function ResenasPage() {
-  const resenasDir = path.join(process.cwd(), "content", "resenas");
-  const files = fs.readdirSync(resenasDir);
-
-  const slugs = files
-    .filter((f) => f.endsWith(".mdx"))
-    .map((f) => f.replace(".mdx", ""));
+  const reviews = getReviews();
 
   return (
-    <main className="mx-auto max-w-3xl p-6">
+    <main className="mx-auto max-w-4xl p-6">
       <h1 className="text-3xl font-bold">Reseñas</h1>
-      <p className="mt-2 text-slate-600">
-        Todas las reseñas de Código Vinario 🍷
-      </p>
+      <p className="mt-2 text-slate-600">Todas las reseñas de Código Vinario 🍷</p>
 
-      <ul className="mt-6 space-y-3">
-        {slugs.map((slug) => (
-          <li
-            key={slug}
-            className="rounded-xl border p-4 hover:bg-slate-50"
-          >
-            <Link href={`/resenas/${slug}`} className="font-medium">
-              {slug.replaceAll("-", " ")}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <ReviewsListClient reviews={reviews} />
     </main>
   );
 }
